@@ -18,10 +18,10 @@ $TargetTriple = (rustc -Vv | Select-String -Pattern "host: (.*)" | ForEach-Objec
 Write-Host "Started building release for ${TargetTriple} ..."
 
 if ([string]::IsNullOrEmpty($Features)) {
-    cargo build --release
+    cargo build --release --bin ssurl --bin ssservice --bin ssmanager
 }
 else {
-    cargo build --release --features "${Features}"
+    cargo build --release --features "${Features}" --bin ssurl --bin ssservice --bin ssmanager
 }
 
 if (!$?) {
@@ -45,7 +45,7 @@ Push-Location "${PSScriptRoot}\..\target\release"
 $ProgressPreference = "SilentlyContinue"
 New-Item "${PackageReleasePath}" -ItemType Directory -ErrorAction SilentlyContinue
 $CompressParam = @{
-    LiteralPath     = "sslocal.exe", "ssserver.exe", "ssurl.exe", "ssmanager.exe", "ssservice.exe"
+    LiteralPath     = "ssurl.exe", "ssmanager.exe", "ssservice.exe"
     DestinationPath = "${PackagePath}"
 }
 Compress-Archive @CompressParam
