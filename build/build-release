@@ -61,11 +61,13 @@ function build() {
 
         cross build --target "${TARGET}" \
                     --features "${TARGET_FEATURES}" \
+                    --bin ssservice --bin ssurl --bin ssmanager \
                     --release
     else
         echo "* Building ${TARGET} package ${VERSION} ..."
 
         cross build --target "${TARGET}" \
+                    --bin ssservice --bin ssurl --bin ssmanager \
                     --release
     fi
 
@@ -89,8 +91,6 @@ function build() {
 
         echo "* Packaging XZ in ${PKG_PATH} ..."
         tar -cJf ${PKG_PATH} \
-            "sslocal" \
-            "ssserver" \
             "ssurl" \
             "ssmanager" \
             "ssservice"
@@ -108,8 +108,6 @@ function build() {
         echo "* Packaging ZIP in ${PKG_PATH} ..."
         cd ${RELEASE_DIR}
         zip ${PKG_PATH} \
-            "sslocal.exe" \
-            "ssserver.exe" \
             "ssurl.exe" \
             "ssmanager.exe" \
             "ssservice.exe"
