@@ -8,10 +8,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-cross:
+  build-linux:
     runs-on: ubuntu-latest
     env:
       RUST_BACKTRACE: full
+      CC_aarch64_unknown_linux_musl: clang
+      AR_aarch64_unknown_linux_musl: llvm-ar
+      CFLAGS_aarch64_unknown_linux_musl: -nostdinc -nostdlib -isystem/usr/include/x86_64-linux-musl/ -isystem/usr/include/clang/14/include
     strategy:
       fail-fast: false
       matrix:
@@ -46,27 +49,87 @@ jobs:
           rustup override set stable
           rustup target add --toolchain stable ${{ matrix.target }}
 
-      - name: Install cross
-        run: cargo install cross
+      - name: Install clang for cross-build
+        if: ${{ !startsWith( matrix.target , 'x86_64-unknown-linux' ) }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install clang llvm libclang-dev llvm-dev -y
+
+      - name: Install musl-tools for targeting musl
+        if: ${{ endsWith( matrix.target , 'musl' ) }}
+        run: |
+          sudo apt-get install musl-tools
 
       - name: Build ${{ matrix.target }}
         timeout-minutes: 120
         run: |
-          compile_target=${{ matrix.target }}
+          TARGET=${{ matrix.target }}
 
-          if [[ "$compile_target" == *"-linux-"* || "$compile_target" == *"-apple-"* ]]; then
-            compile_features="-f local-redir -f local-tun"
+          if [[ "$TARGET" == *"-linux-"* || "$TARGET" == *"-apple-"* ]]; then
+            TARGET_FEATURES="local-redir local-tun"
           fi
 
-          if [[ "$compile_target" == "mips-"* || "$compile_target" == "mipsel-"* || "$compile_target" == "mips64-"* || "$compile_target" == "mips64el-"* ]]; then
+          if [[ "$TARGET" == "mips-"* || "$TARGET" == "mipsel-"* || "$TARGET" == "mips64-"* || "$TARGET" == "mips64el-"* ]]; then
             sudo apt-get update -y && sudo apt-get install -y upx;
             if [[ "$?" == "0" ]]; then
-              compile_compress="-u"
+              USE_UPX=true
+              if [[ -z "$upx" ]] && command -v upx &> /dev/null; then
+                upx="upx -9"
+              fi
+              if [[ "x$upx" == "x" ]]; then
+                echo "Couldn't find upx in PATH, consider specifying it with variable \$upx"
+                exit 1
+              fi
             fi
           fi
 
-          cd build
-          ./build-release -t ${{ matrix.target }} $compile_features $compile_compress
+          VERSION=$(grep -E '^version' Cargo.toml | awk '{print $3}' | sed 's/"//g')
+          PROJECT_ROOT_DIR=$(pwd)
+          RELEASE_DIR="${PROJECT_ROOT_DIR}/target/${TARGET}/release"
+          
+          if [[ "${TARGET_FEATURES}" != "" ]]; then
+            echo "* Building $TARGET package $VERSION with features \"$TARGET_FEATURES\" ..."
+            cargo build \
+              --target "$TARGET" \
+              --features "$TARGET_FEATURES" \
+              --bin ssurl --bin ssmanager --bin ssservice \
+              --release
+          else
+            echo "* Building $TARGET package $VERSION ..."
+            cargo build \
+              --target "$TARGET" \
+              --bin ssurl --bin ssmanager --bin ssservice \
+              --release
+          fi
+          
+          if [[ $? != "0" ]]; then
+            exit 1
+          fi
+
+          cd ${RELEASE_DIR}
+          
+          if [[ "${USE_UPX}" = true ]]; then
+            # Enable upx for MIPS.
+            $upx ssurl ssmanager ssservice #>/dev/null
+          fi
+
+          PKG_DIR="${PROJECT_ROOT_DIR}/build/release"
+          PKG_NAME="shadowsocks-v${VERSION}.${TARGET}.tar.xz"
+          PKG_PATH="${PKG_DIR}/${PKG_NAME}"
+
+          mkdir -p "${PKG_DIR}"
+
+          echo "* Packaging XZ in ${PKG_PATH} ..."
+          tar -cJf ${PKG_PATH} "ssurl" "ssmanager" "ssservice"
+
+          if [[ $? != "0" ]]; then
+            exit 1
+          fi
+
+          cd -
+          cd "${PKG_DIR}"
+          shasum -a 256 "${PKG_NAME}" > "${PKG_NAME}.sha256"
+          echo "* Done build package ${PKG_NAME}"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
