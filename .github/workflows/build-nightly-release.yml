@@ -17,6 +17,7 @@ jobs:
       CC_aarch64_unknown_linux_musl: clang
       AR_aarch64_unknown_linux_musl: llvm-ar
       CFLAGS_aarch64_unknown_linux_musl: -nostdinc -nostdlib -isystem/usr/include/x86_64-linux-musl/ -isystem/usr/include/clang/14/include
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-Clink-self-contained=yes -Clinker=rust-lld"
     strategy:
       fail-fast: false
       matrix:
@@ -95,12 +96,14 @@ jobs:
               --target "$TARGET" \
               --features "$TARGET_FEATURES" \
               --bin ssurl --bin ssmanager --bin ssservice \
+              --config "target.$TARGET.linker=\"rust-lld\"" \
               --release
           else
             echo "* Building $TARGET package $VERSION ..."
             cargo build \
               --target "$TARGET" \
               --bin ssurl --bin ssmanager --bin ssservice \
+              --config "target.$TARGET.linker=\"rust-lld\"" \
               --release
           fi
           
