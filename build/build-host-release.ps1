@@ -18,10 +18,10 @@ $TargetTriple = (rustc -Vv | Select-String -Pattern "host: (.*)" | ForEach-Objec
 Write-Host "Started building release for ${TargetTriple} ..."
 
 if ([string]::IsNullOrEmpty($Features)) {
-    cargo build --release --bin ssurl --bin ssservice --bin ssmanager
+    cargo build --release --bin ssurl --bin ssservice --bin ssmanager --config "target.$TargetTriple.linker=`"rust-lld`""
 }
 else {
-    cargo build --release --features "${Features}" --bin ssurl --bin ssservice --bin ssmanager
+    cargo build --release --features "${Features}" --bin ssurl --bin ssservice --bin ssmanager --config "target.$TargetTriple.linker=`"rust-lld`""
 }
 
 if (!$?) {
