@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RUST_BACKTRACE: full
+      CC_aarch64_unknown_linux_musl: clang
+      AR_aarch64_unknown_linux_musl: llvm-ar
     strategy:
       fail-fast: false
       matrix:
@@ -47,6 +49,17 @@ jobs:
           rustup default stable
           rustup override set stable
           rustup target add --toolchain stable ${{ matrix.target }}
+
+      - name: Install clang for cross-build
+        if: ${{ !startsWith( matrix.target , 'x86_64-unknown-linux' ) }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install clang llvm -y
+
+      - name: Install musl-tools for targeting musl
+        if: ${{ endsWith( matrix.target , 'musl' ) }}
+        run: |
+          sudo apt-get install musl-tools
 
       - name: Build ${{ matrix.target }}
         timeout-minutes: 120
