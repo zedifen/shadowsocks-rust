@@ -25,17 +25,13 @@ HOST_TRIPLE=$(rustc -Vv | grep 'host:' | awk '{print $2}')
 echo "Started build release ${VERSION} for ${HOST_TRIPLE} (target: ${BUILD_TARGET}) with features \"${BUILD_FEATURES}\"..."
 
 if [[ "${BUILD_TARGET}" != "" ]]; then
-    if [[ "${BUILD_FEATURES}" != "" ]]; then
-        cargo build --bin ssservice --bin ssurl --bin ssmanager --release --features "${BUILD_FEATURES}" --target "${BUILD_TARGET}"
-    else
-        cargo build --bin ssservice --bin ssurl --bin ssmanager --release --target "${BUILD_TARGET}"
-    fi
+    BUILD_TARGET=$(rustc -Vv | grep host | cut -d' ' -f2)
+fi
+
+if [[ "${BUILD_FEATURES}" != "" ]]; then
+    cargo build --target "${BUILD_TARGET}" --config "target.$BUILD_TARGET.linker=\"rust-lld\"" --bin ssservice --bin ssurl --bin ssmanager --release --features "${BUILD_FEATURES}"
 else
-    if [[ "${BUILD_FEATURES}" != "" ]]; then
-        cargo build --bin ssservice --bin ssurl --bin ssmanager --release --features "${BUILD_FEATURES}"
-    else
-        cargo build --bin ssservice --bin ssurl --bin ssmanager --release
-    fi
+    cargo build --target "${BUILD_TARGET}" --config "target.$BUILD_TARGET.linker=\"rust-lld\"" --bin ssservice --bin ssurl --bin ssmanager --release
 fi
 
 if [[ "$?" != "0" ]]; then
